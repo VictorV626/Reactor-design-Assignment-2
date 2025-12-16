@@ -388,7 +388,12 @@ def Param_Sweep(vals,param_name):
     plt.grid(True)
     # plt.savefig('Tokamak_Constraints_vs_Bmax.png', dpi=300)
 
-    plt.show()
+    plt.fill_between(vals, 0, 1, color='green', alpha=0.1)
+    plt.fill_between(vals, 1, 100, color='red', alpha=0.1)
+
+    plt.ylim(0, 5)
+
+    
 
 
 B_vals = np.arange(10, 30, 1)
@@ -399,3 +404,5 @@ Param_Sweep(H_vals, 'H')
 
 a_vals = np.arange(1.2, 2.2, 0.1)
 Param_Sweep(a_vals, 'a')
+
+plt.show()
