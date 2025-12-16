@@ -252,7 +252,7 @@ def CALC_PARAMS(a,H,B_max=13.0):
     T_keV = 15.0
     sigma_v = 3e-22            # m^3/s
     kappa = 1.7
-    A = 1.008 #In atomic mass units, scaling law asks for atomic mass H-mode scaling
+    A = 2.5 #In atomic mass units, scaling law asks for atomic mass H-mode scaling
 
     xi = xi_from_B_sigma(B_max, sigma_max)
     # a = a_from_b(b, xi)
@@ -348,7 +348,7 @@ if __name__ == "__main__":
 # H_vals =np.arange(0.5,10,0.1)
 
 
-def Param_Sweep(vals,param_name):
+def Param_Sweep(vals,param_name, unit = "-"):
     beta_hist = np.zeros(len(vals))
     betaT_hist = np.zeros(len(vals))
     qstar_hist = np.zeros(len(vals))
@@ -376,23 +376,23 @@ def Param_Sweep(vals,param_name):
     # Plot
     fig = plt.figure(figsize=(8,6))
 
-    plt.plot(vals, beta_hist/betaT_hist, label=r'$\beta / \beta_T$', color='red')
-    plt.plot(vals, qk/qstar_hist, label=r'$q_k / q^*$', color='green')
-    plt.plot(vals, n_hist/(nG_hist*(10**20)), label=r'$n / n_G$', color='black')
-    plt.plot(vals, fNB/fB_hist, label=r'$f_{NC} / f_B$', color='blue')
+    plt.plot(vals, beta_hist/betaT_hist, label=r'$\beta / \beta_T$', color='red', linestyle='solid')
+    plt.plot(vals, qk/qstar_hist, label=r'$q_k / q^*$', color='green', linestyle='dashed')
+    plt.plot(vals, n_hist/(nG_hist*(10**20)), label=r'$n / n_G$', color='black', linestyle='dashdot')
+    plt.plot(vals, fNB/fB_hist, label=r'$f_{NC} / f_B$', color='blue', linestyle='dotted')
 
-    plt.xlabel(f'{param_name} factor')
+    plt.xlabel(f'{param_name} [{unit}]', size=14)
     # plt.ylim(0,5)
-    plt.ylabel('Constraint ratio')
-    plt.title(f'Tokamak Constraint Curves vs {param_name}')
-    plt.legend()
+    plt.ylabel('Normalized constraints', size=14)
+    plt.title(f'Tokamak operational limits vs {param_name}', size=16)
+    plt.legend(fontsize=14, loc='upper right')
     plt.grid(True)
     # plt.savefig('Tokamak_Constraints_vs_Bmax.png', dpi=300)
 
-    plt.fill_between(vals, 0, 1, color='green', alpha=0.1)
-    plt.fill_between(vals, 1, 100, color='red', alpha=0.1)
-
-    plt.ylim(0, 5)
+    plt.fill_between(np.arange(0,100), 0, 1, color='green', alpha=0.1)
+    plt.fill_between(np.arange(0,100), 1, 100, color='red', alpha=0.1)
+    plt.xlim(vals[0], vals[-1])
+    plt.ylim(0, 6)
 
     return fig
 
@@ -401,28 +401,34 @@ def Param_Sweep(vals,param_name):
 
 B_vals = np.arange(10, 30, 1)
 figs = []
-figs.append(Param_Sweep(B_vals, 'B_max'))
+figs.append(Param_Sweep(B_vals, 'B_max', 'T'))
 
 H_vals = np.arange(0.8, 1.4, 0.1)
-figs.append(Param_Sweep(H_vals, 'H'))
+figs.append(Param_Sweep(H_vals, 'H', '-'))
 a_vals = np.arange(0.6, 1.7, 0.1)
-figs.append(Param_Sweep(a_vals, 'a'))
+figs.append(Param_Sweep(a_vals, 'a', 'm'))
 
-app = QApplication.instance()
-screen = app.primaryScreen().geometry()
+Layout = "Export" #Options: Tiled, Export
+if(Layout=="Tiled"):
+    app = QApplication.instance()
+    screen = app.primaryScreen().geometry()
 
-W = screen.width()
-H = screen.height()
-n = 3
+    W = screen.width()
+    H = screen.height()
+    n = 3
 
-for i, fig in enumerate(figs):
-    mgr = fig.canvas.manager
-    mgr.window.setGeometry(
-        i * W // n,  # x
-        0,          # y
-        W // n,     # width
-        H           # height
-    )
+    for i, fig in enumerate(figs):
+        mgr = fig.canvas.manager
+        mgr.window.setGeometry(
+            i * W // n,  # x
+            0,          # y
+            W // n,     # width
+            H           # height
+        )
+elif(Layout=="Export"):
+    for i, fig in enumerate(figs):
+        fig.set_size_inches(8,6)
+        fig.savefig(f'Tokamak_Constraints_vs_param_{i}.png', dpi=300)
 
 plt.show()
 
