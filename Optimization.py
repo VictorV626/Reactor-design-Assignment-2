@@ -15,6 +15,7 @@ Conventions / units used in these functions:
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+from PyQt5.QtWidgets import QApplication
 
 # constants
 mu0 = 4 * math.pi * 1e-7         # H/m
@@ -373,12 +374,12 @@ def Param_Sweep(vals,param_name):
     fNB = 0.8  #Desired bootstrap fraction
 
     # Plot
-    plt.figure(figsize=(8,6))
+    fig = plt.figure(figsize=(8,6))
 
-    plt.plot(vals, beta_hist/betaT_hist, label=r'$\beta / \beta_T$')
-    plt.plot(vals, qk/qstar_hist, label=r'$q_k / q^*$')
-    plt.plot(vals, n_hist/(nG_hist*(10**20)), label=r'$n / n_G$')
-    plt.plot(vals, fNB/fB_hist, label=r'$f_{NC} / f_B$')
+    plt.plot(vals, beta_hist/betaT_hist, label=r'$\beta / \beta_T$', color='red')
+    plt.plot(vals, qk/qstar_hist, label=r'$q_k / q^*$', color='green')
+    plt.plot(vals, n_hist/(nG_hist*(10**20)), label=r'$n / n_G$', color='black')
+    plt.plot(vals, fNB/fB_hist, label=r'$f_{NC} / f_B$', color='blue')
 
     plt.xlabel(f'{param_name} factor')
     # plt.ylim(0,5)
@@ -393,16 +394,35 @@ def Param_Sweep(vals,param_name):
 
     plt.ylim(0, 5)
 
+    return fig
+
     
 
 
 B_vals = np.arange(10, 30, 1)
-Param_Sweep(B_vals, 'B_max')
+figs = []
+figs.append(Param_Sweep(B_vals, 'B_max'))
 
 H_vals = np.arange(0.8, 1.4, 0.1)
-Param_Sweep(H_vals, 'H')
+figs.append(Param_Sweep(H_vals, 'H'))
+a_vals = np.arange(0.6, 1.7, 0.1)
+figs.append(Param_Sweep(a_vals, 'a'))
 
-a_vals = np.arange(1.2, 2.2, 0.1)
-Param_Sweep(a_vals, 'a')
+app = QApplication.instance()
+screen = app.primaryScreen().geometry()
+
+W = screen.width()
+H = screen.height()
+n = 3
+
+for i, fig in enumerate(figs):
+    mgr = fig.canvas.manager
+    mgr.window.setGeometry(
+        i * W // n,  # x
+        0,          # y
+        W // n,     # width
+        H           # height
+    )
 
 plt.show()
+
