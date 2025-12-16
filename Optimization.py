@@ -243,12 +243,12 @@ def bootstrap_frac(kappa,beta_val,B0,I_P,R0,a,epsilon):
 ###############################################################
 
 
-def CALC_PARAMS(a,H,B_max=13.0):
+def CALC_PARAMS(a,H,B_max=13.0,P_E_MW=1000,P_W_MWpm2=4.0):
     # B_max = 13.0               # T ()
     sigma_max = 300*10**6         # Pa ( structural allowable stress)
     b = 1.2                    # m (blanket thickness)
-    P_E_MW = 1000.0             # MW, electrical output (example)
-    P_W_MWpm2 = 4.0            # MW/m^2, wall loading (example)
+    # P_E_MW = 1000.0             # MW, electrical output (example)
+    # P_W_MWpm2 = 4.0            # MW/m^2, wall loading (example)
     T_keV = 15.0
     sigma_v = 3e-22            # m^3/s
     kappa = 1.7
@@ -360,6 +360,9 @@ def Param_Sweep(vals,param_name, unit = "-"):
         kwargs = {
             'a': 1.993,
             "H": 1.0,
+            "P_E_MW": 1000.0,
+            'B_max': 13.0,
+            "P_W_MWpm2":4.0,
             param_name: val 
         }
         c,R0,A_p,V_p,p_atm,B0,beta_val,n,I_PM,epsilon,P_f,fB,qstar,beta_T,nG = CALC_PARAMS(**kwargs)
@@ -405,8 +408,17 @@ figs.append(Param_Sweep(B_vals, 'B_max', 'T'))
 
 H_vals = np.arange(0.8, 1.4, 0.1)
 figs.append(Param_Sweep(H_vals, 'H', '-'))
+
 a_vals = np.arange(0.6, 1.7, 0.1)
 figs.append(Param_Sweep(a_vals, 'a', 'm'))
+
+
+PE_vals = np.arange(500, 10000, 100)
+figs.append(Param_Sweep(PE_vals, 'P_E_MW', 'MW'))
+
+P_W_vals = np.arange(4, 20, 0.1)
+figs.append(Param_Sweep(P_W_vals, 'P_W_MWpm2', 'MW/m^2'))
+
 
 Layout = "Export" #Options: Tiled, Export
 if(Layout=="Tiled"):
