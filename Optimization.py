@@ -378,16 +378,17 @@ def Param_Sweep(vals,param_name, unit = "-"):
     # Plot
     fig = plt.figure(figsize=(8,6))
 
-    plt.plot(vals, beta_hist/betaT_hist, label=r'$\beta / \beta_T$', color='red', linestyle='solid')
-    plt.plot(vals, qk/qstar_hist, label=r'$q_k / q^*$', color='green', linestyle='dashed')
-    plt.plot(vals, n_hist/(nG_hist*(10**20)), label=r'$n / n_G$', color='black', linestyle='dashdot')
-    plt.plot(vals, fNB/fB_hist, label=r'$f_{NC} / f_B$', color='blue', linestyle='dotted')
+    thickness = 3
+    plt.plot(vals, beta_hist/betaT_hist, label=r'$\beta / \beta_T$', color='red', linestyle='solid', linewidth=thickness)
+    plt.plot(vals, qk/qstar_hist, label=r'$q_k / q^*$', color='green', linestyle='dashed', linewidth=thickness)
+    plt.plot(vals, n_hist/(nG_hist*(10**20)), label=r'$n / n_G$', color='black', linestyle='dashdot', linewidth=thickness)
+    plt.plot(vals, fNB/fB_hist, label=r'$f_{NC} / f_B$', color='blue', linestyle='dotted', linewidth=thickness)
 
-    plt.xlabel(f'{param_name} [{unit}]', size=14)
+    plt.xlabel(f'{param_name} [{unit}]', size=15)
     # plt.ylim(0,5)
-    plt.ylabel('Normalized constraints', size=14)
-    plt.title(f'Tokamak operational limits vs {param_name}', size=16)
-    plt.legend(fontsize=14, loc='upper right')
+    plt.ylabel('Normalized constraints', size=15)
+    plt.title(f'Tokamak operational limits vs {param_name}', size=17)
+    plt.legend(fontsize=15, loc='upper right')
     plt.grid(True)
     # plt.savefig('Tokamak_Constraints_vs_Bmax.png', dpi=300)
 
@@ -395,6 +396,17 @@ def Param_Sweep(vals,param_name, unit = "-"):
     plt.fill_between(np.arange(0,20000, 1000), 1, 100, color='red', alpha=0.1)
     plt.xlim(vals[0], vals[-1])
     plt.ylim(0, 6)
+
+    ax = plt.gca()
+    ax.tick_params(
+    axis='both',
+    which='both',
+    direction='in',
+    top=True,
+    right=True
+    )
+
+    ax.minorticks_on()
 
     return fig
 
