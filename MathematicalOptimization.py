@@ -16,6 +16,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import QApplication
+from scipy.optimize import minimize, rosen, rosen_der
 
 # constants
 mu0 = 4 * math.pi * 1e-7         # H/m
@@ -168,20 +169,21 @@ def AspectRatio(a,R0):
     asp = R0/a
     return asp
 
-def Fusion_Power(n,V_p):
+def Fusion_Power(n,V_p,sigma_v=3e-22):
     P_f = 0.25*17.6*10**6*1.602*10**(-19)*n**2*sigma_v*V_p
     return P_f
 
-def Plasma_current(a,B0,R0):
-    """Defines a plasma current based on a desired
-      safety factor at the edge of the plasma"""
-    qa = 1 #The desired q limit at the edge of the plasma
-    I_P = 2*np.pi*a**2*B0/(mu0*R0*qa)
-    # I_PM = 12.1*a**(1.63)*B0**(-0.16) # Friedberg publication alternative
-    I_PM = I_P/(1*10**6)
-    return I_P,I_PM
+# def Plasma_current(a,B0,R0):
+#     """Defines a plasma current based on a desired
+#       safety factor at the edge of the plasma"""
+#     qa = 1 #The desired q limit at the edge of the plasma
+#     I_P = 2*np.pi*a**2*B0/(mu0*R0*qa)
+#     # I_PM = 12.1*a**(1.63)*B0**(-0.16) # Friedberg publication alternative
+#     I_PM = I_P/(1*10**6)
+#     return I_P,I_PM
 
 def CurrentFrom_H_mode_scaling_law(P_E_MW,R0,kappa,B0,A,tau_E):
+    kappa = 1.7
     """Calcs the plasma current from the H-mode scaling law"""
     #Check whether B field has to be the toroidal field..,.
     IM = tau_E/(0.082*P_E_MW**(-0.5)*R0**(1.6)*kappa**(-0.2)*B0**(0.15)*A**(0.5)) #In MA
@@ -199,23 +201,23 @@ def safety_limit(R0,B0,a,I_PM,kappa):
 
     qstar = 5*a**2*kappa*B0/(R0*I_PM)
     # qstar = 0.112*a**(1.37)*B0**(1.16) #Friedberg publication
-    # print("Qstar:",qstar)
+    print("Qstar:",qstar)
     if qstar>2:
-        # print("q limit met")
+        print("q limit met")
         return qstar
     else:
-        # print("q limit NOT met")
+        print("q limit NOT met")
         return qstar
     
 def beta_limit(beta_val,B0,I_PM,a):
     """Applies Troyon limit to the design parameters"""
     limit = 0.03*I_PM/(a*B0)
-    # print("beta limit:", limit)
+    print("beta limit:", limit)
     if beta_val<limit:
-        # print("Troyon/Beta limit met")
+        print("Troyon/Beta limit met")
         return limit
     else:
-        # print("Troyon/Beta limit NOT met")
+        print("Troyon/Beta limit NOT met")
         return limit
 
 def Density_limit(n,a,I_PM):
@@ -223,10 +225,10 @@ def Density_limit(n,a,I_PM):
     limit = I_PM/(np.pi*a**2)
     # print("limit greenwald:",limit)
     if n/(1*10**(20))<limit:
-        # print("Greenwald lim met")
+        print("Greenwald lim met")
         return limit
     else:
-        # print("Greenwald lim NOT met")
+        print("Greenwald lim NOT met")
         return limit
 
 def bootstrap_frac(kappa,beta_val,B0,I_P,R0,a,epsilon):
@@ -238,29 +240,30 @@ def bootstrap_frac(kappa,beta_val,B0,I_P,R0,a,epsilon):
         # print("Bootstrap fraction met")
         return fB
     else:
-        # print("Bootstrap fraction NOT met")
+        print("Bootstrap fraction NOT met")
         return fB
     
 
 ###############################################################
 
 
-def CALC_PARAMS(a,H,B_max=13.0,P_E_MW=1000,P_W_MWpm2=4.0):
+def CALC_PARAMS(a,P_E_MW,R0,I_PM,B_max=13.0):
     # B_max = 13.0               # T ()
     sigma_max = 300*10**6         # Pa ( structural allowable stress)
     b = 1.2                    # m (blanket thickness)
     # P_E_MW = 1000.0             # MW, electrical output (example)
-    # P_W_MWpm2 = 4.0            # MW/m^2, wall loading (example)
+    P_W_MWpm2 = 4.0            # MW/m^2, wall loading (example)
     T_keV = 15.0
     sigma_v = 3e-22            # m^3/s
     kappa = 1.7
     A = 2.5 #In atomic mass units, scaling law asks for atomic mass H-mode scaling
+    H=1
 
     xi = xi_from_B_sigma(B_max, sigma_max)
     # a = a_from_b(b, xi)
-    c = c_from_b(b, xi, a)
+    c = c_from_b(b, xi,a)
     VI_over_PE_val = VI_over_PE(b, P_W_MWpm2, xi)
-    R0 = R0_from_PE_a_PW(P_E_MW, a, P_W_MWpm2, eta_t=0.4, E_n_MeV=14.1, E_alpha_MeV=3.5, E_Li_MeV=4.72)
+    # R0 = R0_from_PE_a_PW(P_E_MW, a, P_W_MWpm2, eta_t=0.4, E_n_MeV=14.1, E_alpha_MeV=3.5, E_Li_MeV=4.72)
     # (Used E_Li ~ 4.72 MeV to match the numeric 0.04 prefactor; change if you want.)
     A_p = plasma_area(R0, a)
     V_p = plasma_volume(R0, a)
@@ -269,37 +272,119 @@ def CALC_PARAMS(a,H,B_max=13.0,P_E_MW=1000,P_W_MWpm2=4.0):
     B0 = B0_on_axis(R0, a, b, B_max)
     beta_val = beta_from_p_B0(p_Pa, B0)
     n = n_from_p_T(T_keV,p_Pa)
-
-    I_PM = CurrentFrom_H_mode_scaling_law(P_E_MW,R0,kappa,B0,A,tau_E_s) #Plasma current from H-mode scaling law
+    # I_PM = CurrentFrom_H_mode_scaling_law(P_E_MW,R0,kappa,B0,A,tau_E_s) #Plasma current from H-mode scaling law
     epsilon = Inverse_aspectRatio(a,R0)
-    P_f = Fusion_Power(n,V_p)
+    P_f = Fusion_Power(n,V_p,sigma_v)
     qstar = safety_limit(R0,B0,a,I_PM,kappa)
     beta_T = beta_limit(beta_val,B0,I_PM,a)
     nG = Density_limit(n,a,I_PM)
     fB = bootstrap_frac(kappa,beta_val,B0,I_PM,R0,a,epsilon)
 
 
-    return c,R0,A_p,V_p,p_atm,B0,beta_val,n,I_PM,epsilon,P_f,fB,qstar,beta_T,nG
+    return c,R0,A_p,V_p,p_atm,B0,beta_val,n,I_PM,epsilon,P_f,fB,qstar,beta_T,nG,tau_E_s
 
 
-# -------------------------
-# -------------------------
+#Weights for the objectives (their relative importance)
+wq =1000.0
+wbeta =1000.0
+wnG =1000.0
+wfB =1e-5
+wR0 =0.1
+wIp =0.1
+
+
+def objective_function(x):
+    a, P_E_MW,R0, I_PM, B_max = x
+    kappa =1.7
+    A =2.5
+
+    c,R0,A_p,V_p,p_atm,B0,beta_val,n,I_PM,epsilon,P_f,fB,qstar,beta_T,nG,tau_E_s = \
+        CALC_PARAMS(a, P_E_MW,R0, I_PM, B_max)
+    
+    #To punish the major radius going below wall load requirement
+    fR0 = max(0.0, R0_from_PE_a_PW(P_E_MW, a, P_W_MWpm2=4, eta_t=0.4, E_n_MeV=14.1, E_alpha_MeV=3.5, E_Li_MeV=4.72) - R0)**2
+
+    #To punish the plasma current going below H-mode scaling law
+    fIp = max(0.0, CurrentFrom_H_mode_scaling_law(P_E_MW,R0,kappa,B0,A,tau_E_s) - I_PM)**2
+
+    # q limit
+    fq = max(0.0, 2.0 - qstar)**2
+    # Troyon beta
+    beta_limit_val = 0.03 * I_PM / (a * B0)
+    fbeta = max(0.0, beta_val - beta_limit_val)**2
+    # Greenwald
+    nG_limit = I_PM / (math.pi * a**2)
+    fnG = max(0.0, n*1e-20 - nG_limit)**2
+    # Bootstrap fraction
+    fB = max(0.0, 0.8 - fB)**2
+    ftot = wq*fq + wbeta*fbeta + wnG*fnG + wfB*fB + fR0 + fIp
+    return ftot
+
+
+bounds = [
+    (0.5, 5.0),        # a [m]
+    (500.0, 3000.0),   # P_E [MW]
+    (1.0, 50.0),      # R0 [m]
+    (0,40.0), #Plasma current from H-mode scaling law, (LB, 20.0) # I_PM [MA]
+    (5.0, 20.0)        # B_max [T]
+]
+
+
+res = minimize(
+    objective_function,
+    x0=[2.0, 1000.0, 13.0, 10.0, 13.0], #Sets initial guess for a, P_E, R0, I_PM, B_max
+    method='L-BFGS-B', #LBFGS needed for the incorporation of the bounds
+    bounds=bounds
+)
+
+#For a strict approach (Not implemented):
+# def constraints(a,P_E_MW,B_max): 
+#     c,R0,A_p,V_p,p_atm,B0,beta_val,n,I_PM,epsilon,P_f,fB,qstar,beta_T,nG = CALC_PARAMS(a,P_E_MW,B_max)
+#     cons = []
+#     # Safety factor constraint: qstar >= 2.0
+#     cons.append(qstar - 2.0)
+#     # Beta limit constraint: beta_T <= 0.03 * I_PM / (a * B0)
+#     cons.append(0.03 * I_PM / (a * B0) - beta_T)
+#     # Density limit constraint: n/(1e20) <= I_PM / (pi * a^2)
+#     cons.append(I_PM / (math.pi * a**2) - n / (1e20))
+#     # Bootstrap fraction constraint: fB >= 0.8
+#     cons.append(fB - 0.8)
+#     return cons
+
+
+
+a,P_E_MW,R0,I_PM,B_max = res.x
+print("Optimized parameters:")
+print(f"Minor radius a: {a:.3f} m")
+print(f"Electrical power P_E: {P_E_MW:.3f} MW")
+print(f"Major radius R0: {R0:.3f} m")
+print(f"Plasma current I_PM: {I_PM:.3f} MA")
+print(f"Maximum magnetic field B_max: {B_max:.3f} T")
+
+
+#The varaibles which can be varied include: 
+# Minor radius of the plasma a
+# Major radius of the plasma R0
+# Thickness of the blanket region b
+# Thickness of the TF magnets c
+# Electrical power output P_E
+# Elongation kappa
+# Plasma current 
+
 if __name__ == "__main__":
-    B_max = 13.0               # T ()
     sigma_max = 300*10**6         # Pa ( structural allowable stress)
-    b = 1.2                    # m (blanket thickness)
-    P_E_MW = 1000.0             # MW, electrical output (example)
     P_W_MWpm2 = 4.0            # MW/m^2, wall loading (example)
     T_keV = 15.0
     sigma_v = 3e-22            # m^3/s
     kappa = 1.7
-    A=1.008
+    A=2.5
+    b=1.2
 
     xi = xi_from_B_sigma(B_max, sigma_max)
-    a = a_from_b(b, xi)
-    c = c_from_b(b, xi, a)
+    # a = a_from_b(b, xi)
+    c = c_from_b(b, xi,a)
     VI_over_PE_val = VI_over_PE(b, P_W_MWpm2, xi)
-    R0 = R0_from_PE_a_PW(P_E_MW, a, P_W_MWpm2, eta_t=0.4, E_n_MeV=14.1, E_alpha_MeV=3.5, E_Li_MeV=4.72)
+    # R0 = R0_from_PE_a_PW(P_E_MW, a, P_W_MWpm2, eta_t=0.4, E_n_MeV=14.1, E_alpha_MeV=3.5, E_Li_MeV=4.72)
     # (Used E_Li ~ 4.72 MeV to match the numeric 0.04 prefactor; change if you want.)
     A_p = plasma_area(R0, a)
     V_p = plasma_volume(R0, a)
@@ -308,171 +393,65 @@ if __name__ == "__main__":
     B0 = B0_on_axis(R0, a, b, B_max)
     beta_val = beta_from_p_B0(p_Pa, B0)
     n = n_from_p_T(T_keV,p_Pa)
-    I_PM_H = CurrentFrom_H_mode_scaling_law(P_E_MW,R0,kappa,B0,A,tau_E_s)
-
+    # I_PM_H = CurrentFrom_H_mode_scaling_law(P_E_MW,R0,kappa,B0,A,tau_E_s)
     epsilon = Inverse_aspectRatio(a,R0)
     P_f = Fusion_Power(n,V_p)
     asp = AspectRatio(a,R0)
-    fB = bootstrap_frac(kappa,beta_val,B0,I_PM_H,R0,a,epsilon)
+    fB = bootstrap_frac(kappa,beta_val,B0,I_PM,R0,a,epsilon)
 
-    # print("xi =", xi)
-    # print("a (m) =", a)
-    # print("c (m) =", c)
-    # print("V_I / P_E (m^3 / MW) =", VI_over_PE_val)
-    # print("R0 (m) =", R0)
-    # print("Aspect Ratio =", asp)
-    # print("A_p (m^2) =", A_p)
-    # print("V_p (m^3) =", V_p)
-    # print("p (atm) =", p_atm, "p (Pa) =", p_Pa)
-    # print("tau_E required (s) =", tau_E_s)
-    # print("B0 (T) =", B0)
-    # print("Plasma Current (A) =", I_P)
-    # print("Plasma Current (MA) =", I_PM_H)
-    # print("beta =", beta_val)
-    # print("Density (m^-3) n=", n)
-    # print("Fusion power (W):",P_f)
-    # print("Bootstrap fraction fB =", fB)
-    # # print("Coil Current (m^-3) I=", I)
-    # print("---------------- \n LIMITS:")
+    print("xi =", xi)
+    print("a (m) =", a)
+    print("c (m) =", c)
+    print("V_I / P_E (m^3 / MW) =", VI_over_PE_val)
+    print("R0 (m) =", R0)
+    print("Aspect Ratio =", asp)
+    print("A_p (m^2) =", A_p)
+    print("V_p (m^3) =", V_p)
+    print("p (atm) =", p_atm, "p (Pa) =", p_Pa)
+    print("tau_E required (s) =", tau_E_s)
+    print("B0 (T) =", B0)
+    print("Plasma Current (MA) =", I_PM)
+    print("beta =", beta_val)
+    print("Density (m^-3) n=", n)
+    print("Fusion power (W):",P_f)
+    print("Bootstrap fraction fB =", fB)
+    # print("Coil Current (m^-3) I=", I)
+    print("---------------- \n LIMITS:")
 
-    # safety_limit(R0,B0,a,I_PM,kappa)
-    # beta_limit(beta_val,B0,I_PM,a)
-    # Density_limit(n,a,I_PM)
-    # bootstrap_frac(kappa,beta_val,B0,I_PM,R0,a,epsilon)
+    safety_limit(R0,B0,a,I_PM,kappa)
+    beta_limit(beta_val,B0,I_PM,a)
+    Density_limit(n,a,I_PM)
+    bootstrap_frac(kappa,beta_val,B0,I_PM,R0,a,epsilon)
 
-
-
-
-
-# a_vals =np.arange(0.5,1.75,0.1)
-# H_vals =np.arange(0.5,10,0.1)
-
-
-def Param_Sweep(vals,param_name, unit = "-"):
-    beta_hist = np.zeros(len(vals))
-    betaT_hist = np.zeros(len(vals))
-    qstar_hist = np.zeros(len(vals))
-    nG_hist = np.zeros(len(vals))
-    n_hist = np.zeros(len(vals))
-    fB_hist = np.zeros(len(vals))
-
-    for idx, val in enumerate(vals):
-        kwargs = {
-            'a': 1.993,
-            "H": 1.0,
-            "P_E_MW": 1000.0,
-            'B_max': 13.0,
-            "P_W_MWpm2":4.0,
-            param_name: val 
-        }
-        c,R0,A_p,V_p,p_atm,B0,beta_val,n,I_PM,epsilon,P_f,fB,qstar,beta_T,nG = CALC_PARAMS(**kwargs)
-        beta_hist[idx] = beta_val
-        betaT_hist[idx] = beta_T
-        qstar_hist[idx]=qstar
-        n_hist[idx] = n
-        nG_hist[idx] = nG
-        fB_hist[idx] = fB
-
-    qk = 2  #Q profile limit at the edge
-    fNB = 0.8  #Desired bootstrap fraction
-
-    # Plot
-    fig = plt.figure(figsize=(8,6))
-
-    thickness = 3
-    plt.plot(vals, beta_hist/betaT_hist, label=r'$\beta / \beta_T$', color='red', linestyle='solid', linewidth=thickness)
-    plt.plot(vals, qk/qstar_hist, label=r'$q_k / q^*$', color='green', linestyle='dashed', linewidth=thickness)
-    plt.plot(vals, n_hist/(nG_hist*(10**20)), label=r'$n / n_G$', color='black', linestyle='dashdot', linewidth=thickness)
-    plt.plot(vals, fNB/fB_hist, label=r'$f_{NC} / f_B$', color='blue', linestyle='dotted', linewidth=thickness)
-
-    plt.xlabel(f'{param_name} [{unit}]', size=15)
-    # plt.ylim(0,5)
-    plt.ylabel('Normalized constraints', size=15)
-    plt.title(f'Tokamak operational limits vs {param_name}', size=17)
-    plt.legend(fontsize=15, loc='upper right')
-    plt.grid(True)
-    # plt.savefig('Tokamak_Constraints_vs_Bmax.png', dpi=300)
-
-    plt.fill_between(np.arange(0,20000, 1000), 0, 1, color='green', alpha=0.1)
-    plt.fill_between(np.arange(0,20000, 1000), 1, 100, color='red', alpha=0.1)
-    plt.xlim(vals[0], vals[-1])
-    plt.ylim(0, 6)
-
-    ax = plt.gca()
-    ax.tick_params(
-    axis='both',
-    which='both',
-    direction='in',
-    top=True,
-    right=True
-    )
-
-    ax.minorticks_on()
-
-    return fig
-
-    
-def Get_Constraint_Value(a=1.993, H=1.0, B_max=13.0):
-    qk = 2  #Q profile limit at the edge
-    fNB = 0.8  #Desired bootstrap fraction
-
-    _,_,_,_,_,_,beta_val,n,_,_,_,fB,qstar,beta_T,nG = CALC_PARAMS(a=a, H=H, B_max=B_max)
-
-    norm_beta = beta_val/beta_T
-    norm_qstar = qk/qstar
-    norm_nG = n/(nG*(10**20))
-    norm_fB = fNB/fB
-
-    return norm_beta, norm_qstar, norm_nG, norm_fB
-
-default = Get_Constraint_Value()
-print("Constraint values at default params (a=1.993, H=1.0, B_max=13.0): \n", "Beta: ", default[0], " Qstar: ", default[1], " nG: ", default[2], " fB: ", default[3])
-a1_5 = Get_Constraint_Value(a=1.5)
-print("Constraint values at a = 1.5: \n", "Beta: ", a1_5[0], " Qstar: ", a1_5[1], " nG: ", a1_5[2], " fB: ", a1_5[3])
-Bmax25 = Get_Constraint_Value(B_max=25)
-print("Constraint values at B_max = 25: \n", "Beta: ", Bmax25[0], " Qstar: ", Bmax25[1], " nG: ", Bmax25[2], " fB: ", Bmax25[3])
-
-B_vals = np.arange(10, 31, 1)
-figs = []
-figs.append(Param_Sweep(B_vals, 'B_max', 'T'))
-
-H_vals = np.arange(0.5, 2.6, 0.1)
-figs.append(Param_Sweep(H_vals, 'H', '-'))
-a_vals = np.arange(0.5, 2.6, 0.1)
+#Pareto front plotting by varying the weights of the objectives
+def pareto_fronts():
+    wq_values = np.linspace(0.1, 10.0, 20)
+    wbeta_values = np.linspace(0.1, 10.0, 20)
+    wnG_values = np.linspace(0.1, 10.0, 20)
+    wfB_values = np.linspace(0.1, 10.0, 20)
 
 
-a_vals = np.arange(0.6, 1.7, 0.1)
-figs.append(Param_Sweep(a_vals, 'a', 'm'))
+#Interesting but wrong approach to pareto front plotting:
+# def pareto_front():
+#     a_values = np.linspace(0.5, 5.0, 20)
+#     P_E_values = np.linspace(500.0, 3000.0, 20)
+#     B_max_values = np.linspace(5.0, 20.0, 20)
 
+#     objectives = []
 
-PE_vals = np.arange(500, 10000, 100)
-figs.append(Param_Sweep(PE_vals, 'P_E_MW', 'MW'))
+#     for a in a_values:
+#         for P_E in P_E_values:
+#             for B_max in B_max_values:
+#                 obj_value = objective_function([a, P_E, B_max])
+#                 objectives.append((a, P_E, B_max, obj_value))
 
-P_W_vals = np.arange(4, 20, 0.1)
-figs.append(Param_Sweep(P_W_vals, 'P_W_MWpm2', 'MW/m^2'))
-
-
-Layout = "Export" #Options: Tiled, Export
-if(Layout=="Tiled"):
-    app = QApplication.instance()
-    screen = app.primaryScreen().geometry()
-
-    W = screen.width()
-    H = screen.height()
-    n = 3
-
-    for i, fig in enumerate(figs):
-        mgr = fig.canvas.manager
-        mgr.window.setGeometry(
-            i * W // n,  # x
-            0,          # y
-            W // n,     # width
-            H           # height
-        )
-elif(Layout=="Export"):
-    for i, fig in enumerate(figs):
-        fig.set_size_inches(8,6)
-        fig.savefig(f'Tokamak_Constraints_vs_param_{i}.png', dpi=300)
-
-plt.show()
+#     objectives = np.array(objectives)
+#     fig = plt.figure()
+#     ax = fig.add_subplot(111, projection='3d')
+#     ax.scatter(objectives[:, 0], objectives[:, 1], objectives[:, 2], c=objectives[:, 3], cmap='viridis')
+#     ax.set_xlabel('Minor radius a (m)')
+#     ax.set_ylabel('Electrical power P_E (MW)')
+#     ax.set_zlabel('Maximum magnetic field B_max (T)')
+#     plt.title('Pareto Front Visualization')
+#     plt.show()
 
