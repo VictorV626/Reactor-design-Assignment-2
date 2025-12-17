@@ -197,34 +197,34 @@ def safety_limit(R0,B0,a,I_PM,kappa):
 
     qstar = 5*a**2*kappa*B0/(R0*I_PM)
     # qstar = 0.112*a**(1.37)*B0**(1.16) #Friedberg publication
-    print("Qstar:",qstar)
+    # print("Qstar:",qstar)
     if qstar>2:
-        print("q limit met")
+        # print("q limit met")
         return qstar
     else:
-        print("q limit NOT met")
+        # print("q limit NOT met")
         return qstar
     
 def beta_limit(beta_val,B0,I_PM,a):
     """Applies Troyon limit to the design parameters"""
     limit = 0.03*I_PM/(a*B0)
-    print("beta limit:", limit)
+    # print("beta limit:", limit)
     if beta_val<limit:
-        print("Troyon/Beta limit met")
+        # print("Troyon/Beta limit met")
         return limit
     else:
-        print("Troyon/Beta limit NOT met")
+        # print("Troyon/Beta limit NOT met")
         return limit
 
 def Density_limit(n,a,I_PM):
     """Applies Greenwald limit to the design parameters"""
     limit = I_PM/(np.pi*a**2)
-    print("limit greenwald:",limit)
+    # print("limit greenwald:",limit)
     if n/(1*10**(20))<limit:
-        print("Greenwald lim met")
+        # print("Greenwald lim met")
         return limit
     else:
-        print("Greenwald lim NOT met")
+        # print("Greenwald lim NOT met")
         return limit
 
 def bootstrap_frac(kappa,beta_val,B0,I_P,R0,a,epsilon):
@@ -233,10 +233,10 @@ def bootstrap_frac(kappa,beta_val,B0,I_P,R0,a,epsilon):
     fB = 1.3*kappa**(0.25)*beta_val*qstar/(epsilon**(0.5))
     limit=0.8
     if fB>limit:
-        print("Bootstrap fraction met")
+        # print("Bootstrap fraction met")
         return fB
     else:
-        print("Bootstrap fraction NOT met")
+        # print("Bootstrap fraction NOT met")
         return fB
     
 
@@ -315,30 +315,30 @@ if __name__ == "__main__":
     asp = AspectRatio(a,R0)
     fB = bootstrap_frac(kappa,beta_val,B0,I_PM,R0,a,epsilon)
 
-    print("xi =", xi)
-    print("a (m) =", a)
-    print("c (m) =", c)
-    print("V_I / P_E (m^3 / MW) =", VI_over_PE_val)
-    print("R0 (m) =", R0)
-    print("Aspect Ratio =", asp)
-    print("A_p (m^2) =", A_p)
-    print("V_p (m^3) =", V_p)
-    print("p (atm) =", p_atm, "p (Pa) =", p_Pa)
-    print("tau_E required (s) =", tau_E_s)
-    print("B0 (T) =", B0)
-    print("Plasma Current (A) =", I_P)
-    print("Plasma Current (MA) =", I_PM_H)
-    print("beta =", beta_val)
-    print("Density (m^-3) n=", n)
-    print("Fusion power (W):",P_f)
-    print("Bootstrap fraction fB =", fB)
-    # print("Coil Current (m^-3) I=", I)
-    print("---------------- \n LIMITS:")
+    # print("xi =", xi)
+    # print("a (m) =", a)
+    # print("c (m) =", c)
+    # print("V_I / P_E (m^3 / MW) =", VI_over_PE_val)
+    # print("R0 (m) =", R0)
+    # print("Aspect Ratio =", asp)
+    # print("A_p (m^2) =", A_p)
+    # print("V_p (m^3) =", V_p)
+    # print("p (atm) =", p_atm, "p (Pa) =", p_Pa)
+    # print("tau_E required (s) =", tau_E_s)
+    # print("B0 (T) =", B0)
+    # print("Plasma Current (A) =", I_P)
+    # print("Plasma Current (MA) =", I_PM_H)
+    # print("beta =", beta_val)
+    # print("Density (m^-3) n=", n)
+    # print("Fusion power (W):",P_f)
+    # print("Bootstrap fraction fB =", fB)
+    # # print("Coil Current (m^-3) I=", I)
+    # print("---------------- \n LIMITS:")
 
-    safety_limit(R0,B0,a,I_PM,kappa)
-    beta_limit(beta_val,B0,I_PM,a)
-    Density_limit(n,a,I_PM)
-    bootstrap_frac(kappa,beta_val,B0,I_PM,R0,a,epsilon)
+    # safety_limit(R0,B0,a,I_PM,kappa)
+    # beta_limit(beta_val,B0,I_PM,a)
+    # Density_limit(n,a,I_PM)
+    # bootstrap_frac(kappa,beta_val,B0,I_PM,R0,a,epsilon)
 
 
 
@@ -409,15 +409,33 @@ def Param_Sweep(vals,param_name, unit = "-"):
     return fig
 
     
+def Get_Constraint_Value(a=1.993, H=1.0, B_max=13.0):
+    qk = 2  #Q profile limit at the edge
+    fNB = 0.8  #Desired bootstrap fraction
 
+    _,_,_,_,_,_,beta_val,n,_,_,_,fB,qstar,beta_T,nG = CALC_PARAMS(a=a, H=H, B_max=B_max)
 
-B_vals = np.arange(10, 30, 1)
+    norm_beta = beta_val/beta_T
+    norm_qstar = qk/qstar
+    norm_nG = n/(nG*(10**20))
+    norm_fB = fNB/fB
+
+    return norm_beta, norm_qstar, norm_nG, norm_fB
+
+default = Get_Constraint_Value()
+print("Constraint values at default params (a=1.993, H=1.0, B_max=13.0): \n", "Beta: ", default[0], " Qstar: ", default[1], " nG: ", default[2], " fB: ", default[3])
+a1_5 = Get_Constraint_Value(a=1.5)
+print("Constraint values at a = 1.5: \n", "Beta: ", a1_5[0], " Qstar: ", a1_5[1], " nG: ", a1_5[2], " fB: ", a1_5[3])
+Bmax25 = Get_Constraint_Value(B_max=25)
+print("Constraint values at B_max = 25: \n", "Beta: ", Bmax25[0], " Qstar: ", Bmax25[1], " nG: ", Bmax25[2], " fB: ", Bmax25[3])
+
+B_vals = np.arange(10, 31, 1)
 figs = []
 figs.append(Param_Sweep(B_vals, 'B_max', 'T'))
 
-H_vals = np.arange(0.8, 1.4, 0.1)
+H_vals = np.arange(0.5, 2.6, 0.1)
 figs.append(Param_Sweep(H_vals, 'H', '-'))
-a_vals = np.arange(0.6, 1.7, 0.1)
+a_vals = np.arange(0.5, 2.6, 0.1)
 figs.append(Param_Sweep(a_vals, 'a', 'm'))
 
 Layout = "Export" #Options: Tiled, Export
